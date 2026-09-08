@@ -1,46 +1,62 @@
 import mongoose from "mongoose";
 
-// Schema-kan wuxuu qeexayaa xogta movie-ga.
-const movieSchema = new mongoose.Schema({
-  // ID-ga MongoDB ayaa si automatic ah u sameynaya.
+const movieSchema = new mongoose.Schema(
+  {
+    title: {
+      type: String,
+      required: true,
+    },
 
-  // Magaca movie-ga.
-  title: {
-    type: String,
-    required: true,
+    year: {
+      type: Number,
+      required: true,
+    },
+
+    genre: {
+      type: String,
+      required: true,
+    },
+
+    rating: {
+      type: Number,
+      required: true,
+    },
+
+    director: {
+      type: String,
+      required: true,
+    },
+
+    description: {
+      type: String,
+      required: true,
+    },
+
+    cast: {
+      type: [String],
+      default: [],
+    },
+
+    poster: {
+      type: String,
+      default: "",
+    },
+
+    runtime: {
+      type: String,
+      default: "",
+    },
+
+    externalRatings: {
+      type: Array,
+      default: [],
+    },
   },
+  {
+    timestamps: true,
+  }
+);
 
-  // Sanadka movie-ga la sameeyay.
-  year: {
-    type: Number,
-    required: true,
-  },
-
-  // Genre-ka movie-ga.
-  genre: {
-    type: String,
-    required: true,
-  },
-
-  // Rating-ka movie-ga.
-  rating: {
-    type: Number,
-    required: true,
-  },
-
-  // Director-ka movie-ga.
-  director: {
-    type: String,
-    required: true,
-  },
-
-  // Description-ka movie-ga.
-  description: {
-    type: String,
-    required: true,
-  },
-});
-
-// Waxaan hubineynaa in model-ka aan laba jeer la sameyn.
 export const Movie =
-  mongoose.models.Movie || mongoose.model("Movie", movieSchema);
+  mongoose.models.Movie ||
+  mongoose.model("Movie", movieSchema);

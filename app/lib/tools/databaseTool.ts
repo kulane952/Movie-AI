@@ -40,6 +40,13 @@ export const databaseTool = tool({
     minAge,
     countByGenre,
   }) => {
+    console.log("DATABASE TOOL CALLED:", {
+    entity,
+    genre,
+    minRating,
+    minAge,
+    countByGenre,
+  });
     // Marka hore MongoDB ayaan ku xireynaa.
     await connectDB();
 
@@ -107,6 +114,8 @@ export const databaseTool = tool({
 
       // MongoDB ayaan ka raadinaynaa movies.
       const movies = await Movie.find(filter).lean();
+
+console.log("DATABASE RESULT:", movies);
 
       // Natiijada ayaan soo celineynaa.
       return {
