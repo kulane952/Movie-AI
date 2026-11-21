@@ -1,6 +1,7 @@
 import {
   streamText,
   convertToModelMessages,
+  isStepCount,
 } from "ai";
 
 import { openrouter } from "../../lib/ai";
@@ -118,7 +119,7 @@ export async function POST(req: Request) {
 
     const result = streamText({
       model: openrouter(
-        "inclusionai/ling-3.0-flash-fin:free"
+        "nvidia/nemotron-3-ultra-550b-a55b:free"
       ),
 
       system: `
@@ -183,6 +184,9 @@ Assistant: Christopher Nolan directed Interstellar.
         movieTool,
         jokeTool,
       },
+
+      // Tool-ka kadib AI-gu jawaab qoraal ah ha bixiyo.
+      stopWhen: isStepCount(5),
     });
 
     // ==========================================
@@ -246,7 +250,84 @@ Assistant: Christopher Nolan directed Interstellar.
     //   }
     // });
 
-    return result.toUIMessageStreamResponse();
+    return result.toUIMessageStreamResponse({
+      originalMessages: messages,
+
+      // Marka jawaabtu dhammaato, chat-ka oo dhan ayaan kaydineynaa.
+      onFinish: async ({ messages: allMessages }) => {
+        try {
+          await connectDB();
+
+          const currentChat =
+            await Chat.findById(chatId);
+
+          if (!currentChat) {
+            return;
+          }
+
+          const uiMessages = JSON.parse(
+            JSON.stringify(allMessages)
+          );
+
+          currentChat.uiMessages = uiMessages;
+
+          currentChat.messages = uiMessages
+            .filter(
+              (message: any) =>
+                message.role === "user" ||
+                message.role === "assistant"
+            )
+            .map((message: any) => ({
+              id:
+                message.id ||
+                crypto.randomUUID(),
+              role: message.role,
+              content:
+                (message.parts || [])
+                  .filter(
+                    (part: any) =>
+                      part.type === "text"
+                  )
+                  .map((part: any) => part.text)
+                  .join("\n")
+                  .trim() || " ",
+              createdAt: new Date(),
+            }));
+
+          // Title-ka ka samee fariinta ugu horeysa ee user-ka
+          if (
+            currentChat.title === "New Chat"
+          ) {
+            const firstUserMessage =
+              currentChat.messages.find(
+                (message) =>
+                  message.role === "user"
+              );
+
+            if (firstUserMessage?.content.trim()) {
+              currentChat.title =
+                firstUserMessage.content
+                  .slice(0, 50)
+                  .trim();
+            }
+          }
+
+          currentChat.markModified("uiMessages");
+
+          await currentChat.save();
+
+          console.log(
+            "Chat saved successfully:",
+            chatId
+          );
+        } catch (error) {
+          console.error(
+            "Failed to save chat:",
+            error
+          );
+        }
+      },
+    });
 
   } catch (error) {
     console.error(

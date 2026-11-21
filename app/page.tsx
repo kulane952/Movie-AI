@@ -3,6 +3,7 @@
 import { useChat } from "@ai-sdk/react";
 import { useEffect, useRef, useState } from "react";
 import MovieCard from "./components/MovieCard";
+import Markdown from "./components/Markdown";
 
 type Movie = {
   imdbId?: string;
@@ -71,11 +72,102 @@ export default function Home() {
   const submittingRef =
     useRef(false);
 
+  // Trailer-ka wuxuu ku xiran yahay movie-ga la furay,
+  // si movie kale marka la furo trailer-kii hore uusan u soo bixin.
+  const [trailer, setTrailer] =
+    useState<{
+      movieKey: string;
+      status: "loading" | "ready" | "error";
+      videoId?: string;
+    } | null>(null);
+
+  const selectedMovieKey =
+    selectedMovie?.imdbID ||
+    selectedMovie?.imdbId ||
+    selectedMovie?.title ||
+    selectedMovie?.Title ||
+    "";
+
+  const activeTrailer =
+    trailer?.movieKey === selectedMovieKey
+      ? trailer
+      : null;
+
+  const trailerId =
+    activeTrailer?.status === "ready"
+      ? activeTrailer.videoId
+      : undefined;
+
+  const trailerStatus =
+    activeTrailer?.status || "idle";
+
+  // ==========================================
+  // WATCH TRAILER (app-ka gudihiisa)
+  // ==========================================
+
+  async function watchTrailer() {
+    if (!selectedMovie) {
+      return;
+    }
+
+    const movieKey = selectedMovieKey;
+
+    const title =
+      selectedMovie.title ||
+      selectedMovie.Title ||
+      "";
+
+    const year =
+      selectedMovie.year ||
+      selectedMovie.Year ||
+      "";
+
+    setTrailer({
+      movieKey,
+      status: "loading",
+    });
+
+    try {
+      const response = await fetch(
+        `/api/trailer?title=${encodeURIComponent(title)}&year=${encodeURIComponent(year)}`
+      );
+
+      const data = await response.json();
+
+      if (
+        !response.ok ||
+        !data?.success
+      ) {
+        throw new Error(
+          data?.error ||
+            "Trailer not found."
+        );
+      }
+
+      setTrailer({
+        movieKey,
+        status: "ready",
+        videoId: data.data.videoId,
+      });
+    } catch (error) {
+      console.error(
+        "Trailer error:",
+        error
+      );
+
+      setTrailer({
+        movieKey,
+        status: "error",
+      });
+    }
+  }
+
   const {
     messages,
     sendMessage,
     status,
     setMessages,
+    error,
   } = useChat();
 
   // ==========================================
@@ -305,11 +397,18 @@ export default function Home() {
 
       setSelectedMovie(null);
 
+      const storedUiMessages =
+        data?.data?.uiMessages || [];
+
       const storedMessages =
         data?.data?.messages || [];
 
+      // UI messages (movie cards ku jiraan) haddii la hayo,
+      // haddii kale text-ka kaliya.
       const restoredMessages =
-        storedMessages.map(
+        storedUiMessages.length > 0
+          ? storedUiMessages
+          : storedMessages.map(
           (message: {
             id: string;
             role: "user" | "assistant";
@@ -1022,11 +1121,13 @@ export default function Home() {
                                     key={
                                       `${message.id}-text-${index}`
                                     }
-                                    className="whitespace-pre-wrap text-[15px] leading-7 text-gray-900"
+                                    className="assistant-text"
                                   >
-                                    {
-                                      part.text
-                                    }
+                                    <Markdown
+                                      text={
+                                        part.text
+                                      }
+                                    />
                                   </div>
                                 );
                               }
@@ -1076,6 +1177,28 @@ export default function Home() {
                                 if (
                                   !output.success
                                 ) {
+                                  // Haddii AI-gu dib u isku dayay oo uu guuleystay,
+                                  // error-kii hore ha la muujin.
+                                  const recovered =
+                                    message.parts
+                                      .slice(index + 1)
+                                      .some(
+                                        (laterPart) =>
+                                          laterPart.type ===
+                                            "tool-movieTool" &&
+                                          (
+                                            laterPart as {
+                                              output?: {
+                                                success?: boolean;
+                                              };
+                                            }
+                                          ).output?.success
+                                      );
+
+                                  if (recovered) {
+                                    return null;
+                                  }
+
                                   return (
                                     <div
                                       key={
@@ -1263,6 +1386,20 @@ export default function Home() {
                     <span className="h-2 w-2 animate-pulse rounded-full bg-gray-400 [animation-delay:300ms]" />
                   </div>
                 )}
+
+                {/* ================================= */}
+                {/* ERROR */}
+                {/* ================================= */}
+
+                {status === "error" && (
+                  <div data-chat-error className="rounded-xl border border-red-100 bg-red-50 p-4 text-sm text-red-700">
+                    The AI could not answer right now
+                    {error?.message
+                      ? `: ${error.message}`
+                      : "."}{" "}
+                    Please try again.
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -1358,7 +1495,33 @@ export default function Home() {
               {/* MOVIE POSTER */}
               {/* ================================= */}
 
-              <div className="relative">
+              {/* ================================= */}
+              {/* TRAILER PLAYER */}
+              {/* ================================= */}
+
+              {trailerId && (
+                <div className="aspect-video w-full bg-black">
+                  <iframe
+                    src={`https://www.youtube-nocookie.com/embed/${trailerId}?autoplay=1&rel=0&modestbranding=1&playsinline=1`}
+                    title={`${
+                      selectedMovie.title ||
+                      selectedMovie.Title ||
+                      "Movie"
+                    } trailer`}
+                    allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+                    allowFullScreen
+                    className="h-full w-full"
+                  />
+                </div>
+              )}
+
+              <div
+                className={
+                  trailerId
+                    ? "hidden"
+                    : "relative"
+                }
+              >
                 {(
                   selectedMovie.poster ||
                   selectedMovie.Poster
@@ -1386,6 +1549,22 @@ export default function Home() {
                 )}
 
                 <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent" />
+
+                {/* Play Trailer */}
+
+                <button
+                  type="button"
+                  onClick={watchTrailer}
+                  disabled={
+                    trailerStatus === "loading"
+                  }
+                  className="absolute left-1/2 top-1/2 flex h-16 w-16 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-2xl text-gray-950 shadow-xl transition hover:scale-105 hover:bg-white disabled:opacity-70"
+                  aria-label="Play trailer"
+                >
+                  {trailerStatus === "loading"
+                    ? "…"
+                    : "▶"}
+                </button>
 
                 {/* Movie Header */}
 
@@ -1577,22 +1756,45 @@ export default function Home() {
                   )}
                 </div>
 
-                {/* IMDb Button */}
+                {/* Trailer + IMDb Buttons */}
 
-                {(selectedMovie.imdbID ||
-                  selectedMovie.imdbId) && (
-                  <a
-                    href={`https://www.imdb.com/title/${
-                      selectedMovie.imdbID ||
-                      selectedMovie.imdbId
-                    }/`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex rounded-xl bg-gray-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-gray-800"
-                  >
-                    View on IMDb →
-                  </a>
-                )}
+                <div className="flex flex-wrap items-center gap-3">
+                  {!trailerId && (
+                    <button
+                      type="button"
+                      onClick={watchTrailer}
+                      disabled={
+                        trailerStatus === "loading"
+                      }
+                      className="inline-flex items-center gap-2 rounded-xl bg-gray-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:opacity-60"
+                    >
+                      {trailerStatus === "loading"
+                        ? "Loading trailer..."
+                        : "▶ Watch Trailer"}
+                    </button>
+                  )}
+
+                  {(selectedMovie.imdbID ||
+                    selectedMovie.imdbId) && (
+                    <a
+                      href={`https://www.imdb.com/title/${
+                        selectedMovie.imdbID ||
+                        selectedMovie.imdbId
+                      }/`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex rounded-xl border border-gray-200 px-5 py-3 text-sm font-semibold text-gray-700 transition hover:border-gray-400 hover:text-gray-950"
+                    >
+                      View on IMDb →
+                    </a>
+                  )}
+
+                  {trailerStatus === "error" && (
+                    <span className="text-sm text-red-600">
+                      Trailer not available.
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
           </div>

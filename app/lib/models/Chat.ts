@@ -14,6 +14,10 @@ export interface IChat extends Document {
     createdAt: Date;
   }[];
 
+  // UI messages oo dhammaystiran (text + tool parts),
+  // si chat-ka loo soo celiyo isagoo movie cards leh.
+  uiMessages: Record<string, unknown>[];
+
   createdAt: Date;
   updatedAt: Date;
 }
@@ -61,6 +65,11 @@ const ChatSchema =
 
       messages: {
         type: [MessageSchema],
+        default: [],
+      },
+
+      uiMessages: {
+        type: Schema.Types.Mixed,
         default: [],
       },
     },

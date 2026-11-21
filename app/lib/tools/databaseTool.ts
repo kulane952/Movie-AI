@@ -122,7 +122,8 @@ console.log("DATABASE RESULT:", movies);
         success: true,
         type: "movies",
         count: movies.length,
-        data: movies,
+        // ObjectId/Date -> JSON caadi ah, si AI SDK-gu u aqbalo.
+        data: JSON.parse(JSON.stringify(movies)),
       };
     }
 
@@ -151,7 +152,7 @@ console.log("DATABASE RESULT:", movies);
         success: true,
         type: "users",
         count: users.length,
-        data: users,
+        data: JSON.parse(JSON.stringify(users)),
       };
     }
 
